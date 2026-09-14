@@ -1,0 +1,170 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum FileStatus {
+  PENDING   // upload URL issued, not yet confirmed
+  UPLOADED  // client confirmed + headObject verified
+  FAILED    // upload never completed / verification failed
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+  SHARED
+}
+
+enum ThumbnailStatus {
+  NOT_APPLICABLE // non-image files
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum GranteeType {
+  USER
+  LINK   // shareable link, grantee_id is a token/id for the link itself
+  GROUP
+}
+
+enum AccessLevel {
+  READ
+  WRITE
+}
+
+enum UploadMethod {
+  PUT
+  POST
+}
+
+// ─────────────────────────────────────────────
+// Core Entities
+// ─────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  files       File[]
+  folders     Folder[]
+  permissions Permission[] @relation("GrantedPermissions")
+
+  @@map("users")
+}
+
+model Folder {
+  id       String  @id @default(uuid())
+  ownerId  String  @map("owner_id")
+  parentId String? @map("parent_id")
+  name     String
+  // Materialized path for fast subtree queries, e.g. "/root-id/child-id/"
+  path     String
+
+  owner  User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  parent Folder? @relation("FolderToFolder", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("FolderToFolder")
+  files    File[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ownerId])
+  @@index([parentId])
+  @@index([path])
+  @@map("folders")
+}
+
+model File {
+  id           String     @id @default(uuid())
+  ownerId      String     @map("owner_id")
+  folderId     String?    @map("folder_id")
+
+  // Storage location — bucket key, not a full URL
+  key          String     @unique
+  originalName String     @map("original_name")
+  mimeType     String     @map("mime_type")
+  sizeBytes    BigInt     @map("size_bytes")
+  checksum     String?    // e.g. S3 ETag or client-provided SHA-256
+
+  status       FileStatus @default(PENDING)
+  visibility   Visibility @default(PRIVATE)
+
+  thumbnailKey    String?         @map("thumbnail_key")
+  thumbnailStatus ThumbnailStatus @default(NOT_APPLICABLE) @map("thumbnail_status")
+
+  // Soft delete
+  deletedAt DateTime? @map("deleted_at")
+  // Optional hard expiry (e.g. temp files, shared-link-only files)
+  expiresAt DateTime? @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  owner         User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  folder        Folder?         @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  permissions   Permission[]
+  uploadSession UploadSession?
+
+  @@index([ownerId])
+  @@index([folderId])
+  @@index([deletedAt])
+  @@index([status, expiresAt])
+  @@index([visibility])
+  @@map("files")
+}
+
+model Permission {
+  id          String      @id @default(uuid())
+  fileId      String      @map("file_id")
+  granteeType GranteeType @map("grantee_type")
+  // For USER: a User.id. For LINK: an opaque token. For GROUP: a group id.
+  granteeId   String      @map("grantee_id")
+  accessLevel AccessLevel @default(READ) @map("access_level")
+
+  grantedById String?  @map("granted_by_id")
+  expiresAt   DateTime? @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  file      File  @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  grantedBy User? @relation("GrantedPermissions", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@index([fileId])
+  @@index([granteeType, granteeId])
+  @@index([expiresAt])
+  @@map("permissions")
+}
+
+// Tracks a pre-signed upload from issuance to confirmation/expiry.
+// One-to-one with File since each file has exactly one active upload attempt
+// (re-uploads/retries create a new File row with status PENDING).
+model UploadSession {
+  id           String       @id @default(uuid())
+  fileId       String       @unique @map("file_id")
+  presignedUrl String       @map("presigned_url") @db.Text
+  method       UploadMethod @default(PUT)
+  expiresAt    DateTime     @map("expires_at")
+  completedAt  DateTime?    @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt, completedAt])
+  @@map("upload_sessions")
+}
