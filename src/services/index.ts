@@ -1,7 +1,13 @@
-import { permissionRepository, fileRepository } from "../repositories";
+import { fileRepository, folderRepository, permissionRepository, uploadSessionRepository } from "../repositories";
+import { storageProvider } from "../storage";
 import { PermissionService } from "./permission.service";
 import { FileAccessGuard } from "./file-access.guard";
 import { JwtTokenService } from "./jwt-token.service";
+import { UploadService } from "./upload.service";
+import { FileService } from "./file.service";
+import { DownloadService } from "./download.service";
+import { FolderService } from "./folder.service";
+import { SharingService } from "./sharing.service";
 
 export const tokenService = new JwtTokenService({
   secret: process.env.JWT_SECRET!,
@@ -10,3 +16,11 @@ export const tokenService = new JwtTokenService({
 
 export const permissionService = new PermissionService(permissionRepository);
 export const fileAccessGuard = new FileAccessGuard(fileRepository, permissionService);
+
+export const uploadService = new UploadService(
+  fileRepository, folderRepository, uploadSessionRepository, storageProvider
+);
+export const fileService = new FileService(fileRepository, folderRepository, fileAccessGuard);
+export const downloadService = new DownloadService(fileAccessGuard, storageProvider);
+export const folderService = new FolderService(folderRepository);
+export const sharingService = new SharingService(permissionRepository, fileAccessGuard);

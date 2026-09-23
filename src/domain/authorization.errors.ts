@@ -23,3 +23,11 @@ export class ResourceNotFoundError extends Error {
     this.name = "ResourceNotFoundError";
   }
 }
+
+export class BadRequestError extends Error {
+  readonly statusCode = 400;
+  constructor(message = "Bad request") {
+    super(message);
+    this.name = "BadRequestError";
+  }
+}
