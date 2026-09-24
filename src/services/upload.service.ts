@@ -6,6 +6,7 @@ import type { AuthenticatedUser } from "../domain/actor";
 import type { FileEntity, Visibility } from "../domain/file";
 import { StorageKey } from "../storage/storage-key";
 import { BadRequestError } from "../domain/authorization.errors";
+import { eventBus } from "../events/event-bus";
 
 export interface RequestUploadInput {
   filename: string;
@@ -88,7 +89,7 @@ export class UploadService {
       throw new BadRequestError("File not found or not owned by caller");
     }
     if (file.status === "UPLOADED") {
-      return file; // idempotent — already completed
+      return file;
     }
 
     const session = await this.uploadSessions.findByFileId(fileId);
@@ -113,11 +114,18 @@ export class UploadService {
     }
 
     const updated = await this.files.update(fileId, {
-      status: "UPLOADED",
-      checksum: objectMeta.etag,
-    });
+  status: "UPLOADED",
+  checksum: objectMeta.etag,
+});
 
-    await this.uploadSessions.markCompleted(session.id);
-    return updated;
+await this.uploadSessions.markCompleted(session.id);
+
+eventBus.emit("file.uploaded", {
+  fileId: updated.id,
+  mimeType: updated.mimeType,
+  key: updated.key,
+});
+
+return updated;
   }
 }

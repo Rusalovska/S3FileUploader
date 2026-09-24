@@ -15,6 +15,7 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.20.4",
+    "@types/node-cron": "^3.0.11",
     "prisma": "^6.19.3",
     "typescript": "^7.0.2"
   },
@@ -24,6 +25,8 @@
     "@aws-sdk/s3-request-presigner": "^3.1134.0",
     "@prisma/client": "^6.19.3",
     "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.6.0",
+    "sharp": "^0.35.4"
   }
 }

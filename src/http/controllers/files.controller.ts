@@ -20,7 +20,6 @@ function requireUserActor(req: Request): AuthenticatedUser {
   return req.actor;
 }
 
-// bigint doesn't survive JSON.stringify — serialize explicitly at the API boundary.
 function serializeFile(file: FileEntity) {
   return {
     ...file,

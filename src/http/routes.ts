@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { filesController } from "./controllers/files.controller";
 import { foldersController } from "./controllers/folders.controller";
+import { webhooksController } from "./controllers/webhooks.controller";
 
 export const router = Router();
 
 router.post("/files/upload-url", filesController.requestUploadUrl);
+router.post("/webhooks/storage/object-created", webhooksController.objectCreated);
 router.post("/files/:id/complete", filesController.completeUpload);
 router.get("/files/:id", filesController.getFile);
 router.get("/files/:id/download-url", filesController.getDownloadUrl);
