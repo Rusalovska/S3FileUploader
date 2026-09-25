@@ -1,6 +1,7 @@
 import type { PrismaClient, Prisma } from "@prisma/client";
 import type { FileRepository, FileListFilters } from "../file-repository.interface";
 import type { FileEntity, CreateFileInput, UpdateFileInput } from "../../domain/file";
+import type { ThumbnailStatus } from "../../domain/file";
 
 export class PrismaFileRepository implements FileRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -87,4 +88,24 @@ export class PrismaFileRepository implements FileRepository {
       where: { deletedAt: { lt: cutoff, not: null } },
     });
   }
+
+  async findByThumbnailStatus(statuses: ThumbnailStatus[], olderThan: Date): Promise<FileEntity[]> {
+  return this.prisma.file.findMany({
+    where: {
+      thumbnailStatus: { in: statuses },
+      updatedAt: { lt: olderThan },
+      deletedAt: null,
+    },
+  });
+}
+
+async findOrphanedUploads(before: Date): Promise<FileEntity[]> {
+  return this.prisma.file.findMany({
+    where: {
+      status: "PENDING",
+      uploadSession: null,
+      createdAt: { lt: before },
+    },
+  });
+}
 }

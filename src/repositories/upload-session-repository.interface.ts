@@ -5,4 +5,5 @@ export interface UploadSessionRepository {
   findByFileId(fileId: string): Promise<UploadSessionEntity | null>;
   markCompleted(id: string): Promise<UploadSessionEntity>;
   findExpiredIncomplete(before: Date): Promise<UploadSessionEntity[]>;
+  deleteById(id: string): Promise<void>;
 }

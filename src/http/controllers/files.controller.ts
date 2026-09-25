@@ -1,19 +1,16 @@
 import type { Request, Response, NextFunction } from "express";
 import { uploadService, fileService, downloadService, sharingService } from "../../services";
-import {
-  requireString,
-  requirePositiveInt,
-  optionalString,
-  optionalEnum,
-  requireParam,
-} from "../validation";
+import { requireParam } from "../validation";
 import { AuthenticationRequiredError } from "../../domain/authorization.errors";
 import type { AuthenticatedUser } from "../../domain/actor";
 import type { FileEntity } from "../../domain/file";
-
-const VISIBILITY_VALUES = ["PUBLIC", "PRIVATE", "SHARED"] as const;
-const GRANTEE_TYPE_VALUES = ["USER", "LINK", "GROUP"] as const;
-const ACCESS_LEVEL_VALUES = ["READ", "WRITE"] as const;
+import type {
+  requestUploadUrlSchema,
+  updateFileSchema,
+  listFilesQuerySchema,
+  grantShareSchema,
+} from "../schemas/file.schemas";
+import type { z } from "zod";
 
 function requireUserActor(req: Request): AuthenticatedUser {
   if (req.actor.kind !== "user") throw new AuthenticationRequiredError();
@@ -21,23 +18,21 @@ function requireUserActor(req: Request): AuthenticatedUser {
 }
 
 function serializeFile(file: FileEntity) {
-  return {
-    ...file,
-    sizeBytes: file.sizeBytes.toString(),
-  };
+  return { ...file, sizeBytes: file.sizeBytes.toString() };
 }
 
 export const filesController = {
   async requestUploadUrl(req: Request, res: Response, next: NextFunction) {
     try {
       const actor = requireUserActor(req);
+      const body = req.validated.body as z.infer<typeof requestUploadUrlSchema>;
 
       const result = await uploadService.requestUpload(actor, {
-        filename: requireString(req.body, "filename"),
-        contentType: requireString(req.body, "content_type"),
-        sizeBytes: requirePositiveInt(req.body, "size_bytes"),
-        folderId: optionalString(req.body, "folder_id") ?? null,
-        visibility: optionalEnum(req.body, "visibility", VISIBILITY_VALUES),
+        filename: body.filename,
+        contentType: body.content_type,
+        sizeBytes: body.size_bytes,
+        folderId: body.folder_id ?? null,
+        visibility: body.visibility,
       });
 
       res.status(201).json(result);
@@ -49,10 +44,7 @@ export const filesController = {
   async completeUpload(req: Request, res: Response, next: NextFunction) {
     try {
       const actor = requireUserActor(req);
-      const fileId = requireParam(req.params, "id");
-
-      const file = await uploadService.completeUpload(actor, fileId);
-
+      const file = await uploadService.completeUpload(actor, requireParam(req.params, "id"));
       res.json(serializeFile(file));
     } catch (err) {
       next(err);
@@ -61,10 +53,7 @@ export const filesController = {
 
   async getFile(req: Request, res: Response, next: NextFunction) {
     try {
-      const fileId = requireParam(req.params, "id");
-
-      const file = await fileService.getFile(req.actor, fileId);
-
+      const file = await fileService.getFile(req.actor, requireParam(req.params, "id"));
       res.json(serializeFile(file));
     } catch (err) {
       next(err);
@@ -73,10 +62,7 @@ export const filesController = {
 
   async getDownloadUrl(req: Request, res: Response, next: NextFunction) {
     try {
-      const fileId = requireParam(req.params, "id");
-
-      const url = await downloadService.getDownloadUrl(req.actor, fileId);
-
+      const url = await downloadService.getDownloadUrl(req.actor, requireParam(req.params, "id"));
       res.json({ downloadUrl: url });
     } catch (err) {
       next(err);
@@ -86,19 +72,16 @@ export const filesController = {
   async listFiles(req: Request, res: Response, next: NextFunction) {
     try {
       const actor = requireUserActor(req);
-      const query = req.query as Record<string, string | string[] | undefined>;
+      const query = req.validated.query as z.infer<typeof listFilesQuerySchema>;
 
       const result = await fileService.listFiles(actor, {
-        folderId: optionalString(query, "folder_id") ?? undefined,
-        visibility: optionalEnum(query, "visibility", VISIBILITY_VALUES),
-        cursor: optionalString(query, "cursor"),
-        limit: typeof query.limit === "string" ? Number(query.limit) : undefined,
+        folderId: query.folder_id,
+        visibility: query.visibility,
+        cursor: query.cursor,
+        limit: query.limit,
       });
 
-      res.json({
-        items: result.items.map(serializeFile),
-        nextCursor: result.nextCursor,
-      });
+      res.json({ items: result.items.map(serializeFile), nextCursor: result.nextCursor });
     } catch (err) {
       next(err);
     }
@@ -106,13 +89,11 @@ export const filesController = {
 
   async updateFile(req: Request, res: Response, next: NextFunction) {
     try {
-      const fileId = requireParam(req.params, "id");
-
-      const file = await fileService.updateFile(req.actor, fileId, {
-        folderId: optionalString(req.body, "folder_id"),
-        visibility: optionalEnum(req.body, "visibility", VISIBILITY_VALUES),
+      const body = req.validated.body as z.infer<typeof updateFileSchema>;
+      const file = await fileService.updateFile(req.actor, requireParam(req.params, "id"), {
+        folderId: body.folder_id,
+        visibility: body.visibility,
       });
-
       res.json(serializeFile(file));
     } catch (err) {
       next(err);
@@ -121,10 +102,7 @@ export const filesController = {
 
   async deleteFile(req: Request, res: Response, next: NextFunction) {
     try {
-      const fileId = requireParam(req.params, "id");
-
-      await fileService.deleteFile(req.actor, fileId);
-
+      await fileService.deleteFile(req.actor, requireParam(req.params, "id"));
       res.status(204).send();
     } catch (err) {
       next(err);
@@ -133,14 +111,13 @@ export const filesController = {
 
   async grantShare(req: Request, res: Response, next: NextFunction) {
     try {
-      const fileId = requireParam(req.params, "id");
-
-      const grant = await sharingService.grant(req.actor, fileId, {
-        granteeType: optionalEnum(req.body, "grantee_type", GRANTEE_TYPE_VALUES) ?? "USER",
-        granteeId: optionalString(req.body, "grantee_id"),
-        accessLevel: optionalEnum(req.body, "access_level", ACCESS_LEVEL_VALUES),
+      const body = req.validated.body as z.infer<typeof grantShareSchema>;
+      const grant = await sharingService.grant(req.actor, requireParam(req.params, "id"), {
+        granteeType: body.grantee_type,
+        granteeId: body.grantee_id,
+        accessLevel: body.access_level,
+        expiresAt: body.expires_at,
       });
-
       res.status(201).json(grant);
     } catch (err) {
       next(err);
@@ -149,10 +126,7 @@ export const filesController = {
 
   async listShares(req: Request, res: Response, next: NextFunction) {
     try {
-      const fileId = requireParam(req.params, "id");
-
-      const grants = await sharingService.listGrants(req.actor, fileId);
-
+      const grants = await sharingService.listGrants(req.actor, requireParam(req.params, "id"));
       res.json({ items: grants });
     } catch (err) {
       next(err);
@@ -161,11 +135,11 @@ export const filesController = {
 
   async revokeShare(req: Request, res: Response, next: NextFunction) {
     try {
-      const fileId = requireParam(req.params, "id");
-      const permissionId = requireParam(req.params, "permissionId");
-
-      await sharingService.revoke(req.actor, fileId, permissionId);
-
+      await sharingService.revoke(
+        req.actor,
+        requireParam(req.params, "id"),
+        requireParam(req.params, "permissionId")
+      );
       res.status(204).send();
     } catch (err) {
       next(err);

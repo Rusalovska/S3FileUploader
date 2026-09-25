@@ -1,4 +1,5 @@
 import type { FileEntity, CreateFileInput, UpdateFileInput } from "../domain/file";
+import type { ThumbnailStatus } from "../domain/file";
 
 export interface FileListFilters {
   ownerId: string;
@@ -20,4 +21,6 @@ export interface FileRepository {
 
   findExpiredPendingUploads(before: Date): Promise<FileEntity[]>;
   findSoftDeletedPast(cutoff: Date): Promise<FileEntity[]>;
+  findByThumbnailStatus(statuses: ThumbnailStatus[], olderThan: Date): Promise<FileEntity[]>;
+  findOrphanedUploads(before: Date): Promise<FileEntity[]>;
 }
