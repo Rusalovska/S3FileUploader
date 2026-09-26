@@ -22,4 +22,8 @@ export class PrismaUploadSessionRepository implements UploadSessionRepository {
       where: { completedAt: null, expiresAt: { lt: before } },
     });
   }
+
+  async deleteById(id: string): Promise<void> {
+    await this.prisma.uploadSession.delete({ where: { id } });
+  }
 }
