@@ -3,3 +3,7 @@
 \.devin
 \node_modules
 \.cursor
+\dist
+\mc.exe
+\minio.exe
+\prisma

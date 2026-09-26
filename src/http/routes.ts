@@ -10,6 +10,8 @@ import {
   grantShareSchema,
 } from "./schemas/file.schemas";
 import { createFolderSchema, updateFolderSchema, listFoldersQuerySchema } from "./schemas/folder.schemas";
+import { authController } from "./controllers/auth.controller";
+import { registerSchema, loginSchema } from "./schemas/auth.schemas";
 
 export const router = Router();
 
@@ -28,6 +30,9 @@ router.patch("/files/:id", validate({ body: updateFileSchema }), filesController
 router.delete("/files/:id", filesController.deleteFile);
 router.post("/files/:id/share", validate({ body: grantShareSchema }), filesController.grantShare);
 router.delete("/files/:id/share/:permissionId", filesController.revokeShare);
+
+router.post("/auth/register", validate({ body: registerSchema }), authController.register);
+router.post("/auth/login", validate({ body: loginSchema }), authController.login);
 
 router.post("/folders", validate({ body: createFolderSchema }), foldersController.create);
 router.get("/folders", validate({ query: listFoldersQuerySchema }), foldersController.listChildren);

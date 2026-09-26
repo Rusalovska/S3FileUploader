@@ -9,12 +9,15 @@ import { DownloadService } from "./download.service";
 import { FolderService } from "./folder.service";
 import { SharingService } from "./sharing.service"; 
 import { CleanupService } from "./cleanup.service";
+import { userRepository } from "../repositories";
+import { AuthService } from "./auth.service";
 
 export const tokenService = new JwtTokenService({
   secret: process.env.JWT_SECRET!,
   expiresIn: process.env.JWT_EXPIRY ?? "1h",
 });
 
+export const authService = new AuthService(userRepository, tokenService);
 export const permissionService = new PermissionService(permissionRepository);
 export const fileAccessGuard = new FileAccessGuard(fileRepository, permissionService);
 

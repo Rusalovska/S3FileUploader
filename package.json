@@ -4,6 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "setup": "npx prisma migrate dev && npx prisma generate && node dist/scripts/ensure-bucket.js && node dist/scripts/configure-cors.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "postinstall": "prisma skills sync || exit 0"
   },
@@ -12,6 +15,7 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.20.4",
@@ -24,6 +28,7 @@
     "@aws-sdk/s3-presigned-post": "^3.1134.0",
     "@aws-sdk/s3-request-presigner": "^3.1134.0",
     "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.3",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
